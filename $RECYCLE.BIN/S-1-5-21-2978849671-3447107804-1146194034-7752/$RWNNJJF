@@ -1,0 +1,28 @@
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+Starting parallel pool (parpool) using the 'local' profile ...
+Preserving jobs with IDs: 2 because they contain crash dump files.
+You can use 'delete(myCluster.Jobs)' to remove all jobs created with profile local. To create 'myCluster' use 'myCluster = parcluster('local')'.
+connected to 6 workers.
+
+ans = 
+
+ Pool with properties: 
+
+            Connected: true
+           NumWorkers: 6
+              Cluster: local
+        AttachedFiles: {}
+    AutoAddClientPath: true
+          IdleTimeout: 30 minutes (30 minutes remaining)
+          SpmdEnabled: true
+
+{Error using compute_streamlines (line 48)
+input folder ../manta/sbfs_scenes/data/sbfs_flip_water_pipes_10500 not exists
+} 
+IdleTimeout has been reached.
+Parallel pool using the 'local' profile is shutting down.
+{Undefined function or variable 'QUIT'.
+} 
