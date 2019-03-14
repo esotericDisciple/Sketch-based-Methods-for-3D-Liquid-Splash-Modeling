@@ -1,0 +1,103 @@
+﻿  main.cpp
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_GLSL.h(66): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(855): warning C4010: single-line comment contains line-continuation character
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(318): warning C4305: 'argument': truncation from 'double' to 'GLfloat'
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(323): warning C4305: 'argument': truncation from 'double' to 'GLfloat'
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(328): warning C4305: 'argument': truncation from 'double' to 'GLfloat'
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(333): warning C4305: 'argument': truncation from 'double' to 'GLfloat'
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(401): warning C4305: '-=': truncation from 'double' to 'float'
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(411): warning C4305: '+=': truncation from 'double' to 'float'
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(501): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(504): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(505): warning C4244: '-=': conversion from 'double' to 'float', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(585): warning C4244: 'argument': conversion from 'double' to 'GLfloat', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(599): warning C4244: 'argument': conversion from 'double' to 'GLfloat', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(667): warning C4305: 'initializing': truncation from 'double' to 'float'
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(860): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(861): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(862): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+main.cpp(20): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+main.cpp(48): warning C4101: 'temp': unreferenced local variable
+d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(332): warning C4305: 'initializing': truncation from 'int' to 'float'
+  d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(325): note: while compiling class template member function 'void Tri_Mesh<TYPE>::Select(TYPE [],TYPE [],int &)'
+          with
+          [
+              TYPE=float
+          ]
+  d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(469): note: see reference to function template instantiation 'void Tri_Mesh<TYPE>::Select(TYPE [],TYPE [],int &)' being compiled
+          with
+          [
+              TYPE=float
+          ]
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(36): note: see reference to class template instantiation 'Tri_Mesh<TYPE>' being compiled
+          with
+          [
+              TYPE=float
+          ]
+  d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(36): note: see reference to class template instantiation 'Fluid<float>' being compiled
+d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(336): warning C4305: 'initializing': truncation from 'int' to 'float'
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(1312): warning C4305: 'argument': truncation from 'double' to 'GLfloat'
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(1293): note: while compiling class template member function 'void Fluid<float>::Draw_Edges(void)'
+  d:\sbfs\source\sketch-fluid-master\visfluid\OpenGL_Driver.h(250): note: see reference to function template instantiation 'void Fluid<float>::Draw_Edges(void)' being compiled
+d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(503): warning C4474: 'fscanf' : too many arguments passed for format string
+  d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(503): note: placeholders and their parameters expect 1 variadic arguments, but 2 were provided
+  d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(492): note: while compiling class template member function 'void Tri_Mesh<TYPE>::Read_Manta_Mesh_OBJ(const char *)'
+          with
+          [
+              TYPE=float
+          ]
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(331): note: see reference to function template instantiation 'void Tri_Mesh<TYPE>::Read_Manta_Mesh_OBJ(const char *)' being compiled
+          with
+          [
+              TYPE=float
+          ]
+d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(295): warning C4305: 'initializing': truncation from 'double' to 'float'
+  d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(292): note: while compiling class template member function 'void Tri_Mesh<TYPE>::Lap_Smooth_Mesh(void)'
+          with
+          [
+              TYPE=float
+          ]
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(333): note: see reference to function template instantiation 'void Tri_Mesh<TYPE>::Lap_Smooth_Mesh(void)' being compiled
+          with
+          [
+              TYPE=float
+          ]
+d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(70): warning C4305: '=': truncation from 'double' to 'float'
+  d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(41): note: while compiling class template member function 'Tri_Mesh<TYPE>::Tri_Mesh(int)'
+          with
+          [
+              TYPE=float
+          ]
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(88): note: see reference to function template instantiation 'Tri_Mesh<TYPE>::Tri_Mesh(int)' being compiled
+          with
+          [
+              TYPE=float
+          ]
+d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(71): warning C4305: '=': truncation from 'double' to 'float'
+d:\sbfs\source\sketch-fluid-master\visfluid\Tri_Mesh.h(72): warning C4305: '=': truncation from 'double' to 'float'
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(998): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(976): note: while compiling class template member function 'void Fluid<float>::Import_Pathlines(const std::string,const std::string,bool,int)'
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(179): note: see reference to function template instantiation 'void Fluid<float>::Import_Pathlines(const std::string,const std::string,bool,int)' being compiled
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(1007): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(719): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(699): note: while compiling class template member function 'void Fluid<float>::Load_Streamline_Grid_TXT(const std::string,const std::string,const std::string,bool)'
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(183): note: see reference to function template instantiation 'void Fluid<float>::Load_Streamline_Grid_TXT(const std::string,const std::string,const std::string,bool)' being compiled
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(720): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(743): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(517): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(498): note: while compiling class template member function 'void Fluid<float>::Load_Tensorflow_Prediction(const std::string,bool)'
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(171): note: see reference to function template instantiation 'void Fluid<float>::Load_Tensorflow_Prediction(const std::string,bool)' being compiled
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(518): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(581): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(433): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(399): note: while compiling class template member function 'void Fluid<float>::Load_Tensorflow_Animation(void)'
+  d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(166): note: see reference to function template instantiation 'void Fluid<float>::Load_Tensorflow_Animation(void)' being compiled
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(434): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+d:\sbfs\source\sketch-fluid-master\visfluid\Fluid.h(473): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+  Generating code
+  23 of 609 functions ( 3.8%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    23 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  VisFluid.vcxproj -> D:\SBFS\Source\sketch-fluid-master\VisFluid\x64\Release\VisFluid.exe
+  VisFluid.vcxproj -> D:\SBFS\Source\sketch-fluid-master\VisFluid\x64\Release\VisFluid.pdb (Full PDB)
