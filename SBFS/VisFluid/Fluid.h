@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <unordered_set>
 #include <assert.h>
 
 #include "zlib.h"
@@ -40,12 +41,16 @@ public:
 	bool extend;            // 4 channel version or single channel version
 	string scene_name;
 	int cur_frame;
+	int batch_size, num_batch, iepoch;			// batch size used in training/visualization
 	TYPE threshold_value;   // value used for surface reconstruction from binary levelset
 	TYPE fps;
 	int max_frames, max_particles, max_vertices;
 	int max_streamline_length, max_streamline_number;
 	int start_frame, end_frame;				// start_frame and end_frame, inclusive for the animation
 	int draw_start_frame, draw_end_frame;	// rendering range
+
+	// pathes
+	string in_manta_basePath, in_tensorflow_path, in_matlab_basePath;
 
 	// particle data here
 	int num_pathlines;
@@ -71,6 +76,7 @@ public:
 	// streamline_grid[t][i]: data of i-th streamline at t-th frame 
 	TYPE*** streamline_grid;
 	TYPE*	streamline_colors;
+	int**   streamline_labels;
 
 	// mesh data here: note that manta normalize mesh to unit cube around 0 when exporting, pos -= toVec3f(gs)*0.5; pos *= dx;
 	Tri_Mesh<TYPE> **lvst_mesh_animation;
@@ -87,6 +93,8 @@ public:
 	Fluid()
 	{
 		streamline_grid			= NULL;
+		streamline_colors		= NULL;
+		streamline_labels		= NULL;
 		grid_vel				= NULL;
 		pathline_animation		= NULL;
 		lvst_mesh_animation		= NULL;
@@ -127,14 +135,17 @@ public:
 		end_frame		= 99;
 		grid_res		= 128;
 		extend			= true;
+		batch_size		= 4;
+		num_batch		= 5;
 		threshold_value = 0.5;
-		const string sceneName				= "sbfs_flip_water_pipes_10300";
+		iepoch			= 16;
 
-		const string in_manta_basePath		= "..\\manta\\sbfs_scenes\\data";
-		const string in_tensorflow_path		= extend? "..\\tensorflow\\data_extend\\result" : "..\\tensorflow\\data\\result";
-		const string in_matlab_basePath		= "..\\VisMat\\data\\4096";
+		in_manta_basePath		= "..\\manta\\sbfs_scenes\\data";
+		in_tensorflow_path		= extend? "..\\tensorflow\\data_extend_REALGAN_cluster\\result" : "..\\tensorflow\\data\\result";
+		in_matlab_basePath		= "..\\VisMat\\data\\4096";
+		
 		const string out_vs_basePath		= "data";
-
+		const string sceneName				= "sbfs_flip_water_pipes_10000";
 		const string parts_filename			= "flipParts";
 		const string mesh_filename			= "flip";
 		const string vel_filename			= "flipVel";
@@ -146,12 +157,12 @@ public:
 
 		// -- functions
 		bool fileCompressed					= true;
-		bool process_meshes					= true;
-		bool process_streamlines			= true;
+		bool process_meshes					= false;
+		bool process_streamlines			= false;
 		bool process_sketches				= false;
-		bool visualize_result				= false;
-		bool compare_result					= false;
 
+		bool run_visualization				= true;
+		bool compare_result					= true;
 
 		bool process_pathlines				= false;
 		bool exportOrientedPoints			= false;
@@ -160,15 +171,19 @@ public:
 
 		Set_Scene_Name(sceneName);
 
-		if (visualize_result)
+		if (run_visualization)
 		{
-			//Surface_Reconstruction_From_Levelset(extend);
-			Load_Tensorflow_Animation();
+			 Surface_Reconstruction_From_Levelset();
 		}
 		if (compare_result)
 		{
 			//Load_Sketch_Levelset_Grid_Uni(out_vs_basePath);
-			Load_Tensorflow_Prediction(in_tensorflow_path, extend);
+			
+			Load_Tensorflow_Prediction_Batch(in_tensorflow_path, extend);
+
+			//Load_Tensorflow_Animation();
+			//Load_Tensorflow_Demo_Sequence();
+			//Load_Tensorflow_Demo_Interpolate();
 		}
 		if (process_pathlines) //-- load and build manta particles pathlines
 		{
@@ -257,60 +272,42 @@ public:
  	}
 	
 	// call manta python program for levelset surface reconstruction
-	void Surface_Reconstruction_From_Levelset(bool extend)
+	void Surface_Reconstruction_From_Levelset()
 	{
-		string result_dir = extend ? "../tensorflow/data_extend/result" : "../tensorflow/data/result";
-		string mat_dir = "../VisMat/data";
-		string manta_dir = "../manta/sbfs_scenes/data";
-		string filetype = "test";
-
-		int batch_size		= 4;
-		int num_batch		= 20;
-		int iepoch			= 20;
+		string manta_dir = in_manta_basePath;
+		string result_dir = in_tensorflow_path;
+		string mat_dir = "..\\VisMat\\data";
 
 		printf("start levelset surface reconstruction\n");
 		char cmd_msg[1024];
-		string msg;
-		if(extend)
-			msg = "manta sbfs_tf_visualize_sketch_extend_vs.py --batch_size %d --num_batch %d --iepoch %d --threshold_value %f --result_dir %s --mat_dir %s --manta_dir %s --filetype %s";
-		else
-			msg = "manta sbfs_tf_visualize_sketch_vs.py --batch_size %d --num_batch %d --iepoch %d --threshold_value %f --result_dir %s --mat_dir %s --manta_dir %s --filetype %s";
-		sprintf(cmd_msg, msg.c_str(), batch_size, num_batch, iepoch, threshold_value, result_dir.c_str(), mat_dir.c_str(), manta_dir.c_str(), filetype.c_str());
+		string msg = "manta sbfs_tf_visualize_sketch_extend_vs.py --batch_size %d --num_batch %d --iepoch %d --threshold_value %f --result_dir %s --mat_dir %s --manta_dir %s";
+		sprintf(cmd_msg, msg.c_str(), batch_size, num_batch, iepoch, threshold_value, result_dir.c_str(), mat_dir.c_str(), manta_dir.c_str());
 		printf("%s\n", cmd_msg);
 		system(cmd_msg);
 		printf("end levelset surface reconstruction");
 	}
 
-	void Surface_Reconstruction_From_Levelset_Update()
+	void Surface_Reconstruction_From_Levelset_Update(int update_frame, float update_threshold)
 	{
-		string result_dir = extend ? "../tensorflow/data_extend/result" : "../tensorflow/data/result";
-		string mat_dir = "../VisMat/data";
-		string manta_dir = "../manta/sbfs_scenes/data";
-		string filetype = "test";
+		string manta_dir = in_manta_basePath;
+		string result_dir = in_tensorflow_path;
+		string mat_dir = "..\\VisMat\\data";
 
-		int batch_size		= 4;
-		int num_batch		= 20;
-		int iepoch			= 20;
-
-		printf("start update levelset surface reconstruction, frame = %d, threshold_value = %f\n", cur_frame, threshold_value);
+		printf("start update levelset surface reconstruction, frame = %d, threshold_value = %f\n", update_frame, update_threshold);
 		char cmd_msg[1024];
-		string msg;
-		if(extend)
-			msg = "manta sbfs_tf_visualize_sketch_extend_vs_update.py --cur_frame %d --batch_size %d --num_batch %d --iepoch %d --threshold_value %f --result_dir %s --mat_dir %s --manta_dir %s --filetype %s";
-		else
-			msg = "manta sbfs_tf_visualize_sketch_vs_update.py --cur_frame %d --batch_size %d --num_batch %d --iepoch %d --threshold_value %f --result_dir %s --mat_dir %s --manta_dir %s --filetype %s";
-		sprintf(cmd_msg, msg.c_str(), cur_frame, batch_size, num_batch, iepoch, threshold_value, result_dir.c_str(), mat_dir.c_str(), manta_dir.c_str(), filetype.c_str());
-		printf("%s\n", cmd_msg);
+		string msg = "manta sbfs_tf_visualize_sketch_extend_vs_update.py --update_frame %d --batch_size %d --num_batch %d --iepoch %d --threshold_value %f --result_dir %s --mat_dir %s --manta_dir %s";
+		sprintf(cmd_msg, msg.c_str(), update_frame, batch_size, num_batch, iepoch, update_threshold, result_dir.c_str(), mat_dir.c_str(), manta_dir.c_str());
+		//printf("%s\n", cmd_msg);
 		system(cmd_msg);
-		printf("end update levelset surface reconstruction, frame = %d, threshold_value = %f\n", cur_frame, threshold_value);
+		printf("end update levelset surface reconstruction, frame = %d, threshold_value = %f\n", update_frame, update_threshold);
 
 
-		// reload current frame
+		// reload the updated frame
 		// the addresses are already loaded.
 		string os_sep = "\\";
 
-		string sketch_addr	= addrs_sketch[cur_frame];
-		string lvst_addr	= addrs_lvst[cur_frame];
+		string sketch_addr	= addrs_sketch[update_frame];
+		string lvst_addr	= addrs_lvst[update_frame];
 
 		string addr_lvst = lvst_addr;
 		string filename_lvst = addr_lvst.substr(addr_lvst.rfind(os_sep) + 1, addr_lvst.rfind('.') - addr_lvst.rfind(os_sep) - 1);
@@ -328,10 +325,10 @@ public:
 		string path_pred_mesh = result_dir + os_sep + seed_num + "#" + simname + "#" + filename_lvst + "_pred.obj";
 
 		// load mesh
-		predict_animation[cur_frame]->Read_Manta_Mesh_OBJ(path_pred_mesh.c_str());
-		predict_animation[cur_frame]->Build_Connectivity();
-		predict_animation[cur_frame]->Lap_Smooth_Mesh();
-		predict_animation[cur_frame]->Build_VN(predict_animation[cur_frame]->X);
+		predict_animation[update_frame]->Read_Manta_Mesh_OBJ(path_pred_mesh.c_str());
+		predict_animation[update_frame]->Build_Connectivity();
+		predict_animation[update_frame]->Lap_Smooth_Mesh();
+		predict_animation[update_frame]->Build_VN(predict_animation[update_frame]->X);
 	}
 
 	// load data addresses
@@ -493,8 +490,8 @@ public:
 		Update(start_frame);
 	}
 
-	// compare streamlines, groundtruth and the prediction
-	void Load_Tensorflow_Prediction(const string in_tensorflow_path, bool extend)
+	// compare streamlines, groundtruth and the prediction(in batch generated from tensorflow at evaluation)
+	void Load_Tensorflow_Prediction_Batch(const string in_tensorflow_path, bool extend)
 	{
 		start_frame = 0;
 		end_frame = start_frame;
@@ -528,20 +525,11 @@ public:
 			}
 		}
 
-		int batch_size = 4;
-		int num_batch = 20;
-		Set_Scene_Name(extend? "prediction_extend" : "prediction");
-		string filetype = "test";
-		string addr_filename;
-		if (filetype == "test")
-			addr_filename = "test_addrs.txt";
-		else
-			addr_filename = "train_addrs.txt";
+		Set_Scene_Name("REALGAN");
+		string addr_filename = "test_addrs.txt";
 		int current_frame = 0;
 		string os_sep = "\\";
-		//compare unextend network predictions : use the unextend addresses
-		Load_Data_Addrs_Comp(addr_filename);
-		//Load_Data_Addrs(in_tensorflow_path, addr_filename, extend);
+		Load_Data_Addrs("..\\tensorflow\\shared", addr_filename, extend);
 		for (int ibatch = 0; ibatch < num_batch; ibatch++)
 		{
 			vector<string> sketch_addrs, lvst_addrs;
@@ -563,7 +551,8 @@ public:
 
 				string path_test_mesh = in_tensorflow_path + os_sep + seed_num + "#" + simname + "#" + filename_lvst + "_recons.obj";
 				string path_pred_mesh = in_tensorflow_path + os_sep + seed_num + "#" + simname + "#" + filename_lvst + "_pred.obj";
-				string path_streamline = in_tensorflow_path + os_sep + seed_num + "#" + simname + "#" + "flipStreamline_" + frame_num + "_resampled.txt";
+				//string path_streamline = in_tensorflow_path + os_sep + seed_num + "#" + simname + "#" + "flipStreamline_" + frame_num + "_resampled.txt";
+				string path_streamline = in_tensorflow_path + os_sep + seed_num + "#" + simname + "#" + "flipStreamline_" + frame_num + "_resampled_agglomerativeclustering_cluster_centers.txt";
 				string path_mesh = in_tensorflow_path + os_sep + simname + "#" + "flip_" + frame_num + ".gz";
 				//std::cout << path_test_lvst << "\n" << path_streamline << "\n" << path_streamline;
 				
@@ -604,6 +593,147 @@ public:
 		printf("number frames = %d\n", current_frame);
 
 		end_frame = current_frame-1;
+		Update(start_frame);
+	}
+
+	//load demo_sequence
+	void Load_Tensorflow_Demo_Sequence()
+	{
+		string inpath = "..\\tensorflow\\demo_sequence";
+		start_frame = 20;
+		end_frame = 99;
+		Set_Scene_Name("demo_sequence");
+
+		// allocate memory for streamlines
+		if (streamline_grid == NULL)
+		{
+			num_streamlines = new int[max_frames];
+			streamline_length = new int*[max_frames];
+			streamline_grid = new TYPE**[max_frames];
+			for (int f = 0; f < max_frames; f++)
+			{
+				streamline_length[f] = new int[max_streamline_number];
+				streamline_grid[f] = new TYPE*[max_streamline_number];
+				for (int n = 0; n < max_streamline_number; n++)
+					streamline_grid[f][n] = new TYPE[max_streamline_length * 3];
+			}
+			streamline_colors = new TYPE[3 * max_streamline_number];
+		}
+		float center = 0.5 * grid_res;
+		float scale = 1.0 / grid_res;
+		// allocate memory for meshes
+		if (train_animation == NULL)
+		{
+			train_animation = new Tri_Mesh<TYPE>*[max_frames];
+			predict_animation = new Tri_Mesh<TYPE>*[max_frames];
+			for (int i = 0; i < max_frames; i++)
+			{
+				train_animation[i] = new Tri_Mesh<TYPE>(max_vertices);
+				predict_animation[i] = new Tri_Mesh<TYPE>(max_vertices);
+			}
+		}
+
+		string os_sep = "\\";
+		 //../VisMat/data\\4096\\sbfs_flip_water_pipes_10113\\flipSketchGrid_0030.bin 
+		 //../manta/sbfs_scenes/data\\sbfs_flip_water_pipes_10113\\flipLevelSet_0030.uni 
+		 //../manta/sbfs_scenes/data\\sbfs_flip_water_pipes_10113\\flipVel_0030.uni
+
+		printf("start loading tensorflow demo sequences\n");
+		for (int current_frame = start_frame; current_frame <= end_frame; current_frame++)
+		{
+			char addr_lvst_c[1024];
+			char addr_sketch_c[1024];
+
+			sprintf(addr_lvst_c, string("../manta/sbfs_scenes/data\\sbfs_flip_water_pipes_10000\\flipLevelSet_%04d.uni").c_str(), current_frame);
+			string addr_lvst = string(addr_lvst_c);
+			string filename_lvst = addr_lvst.substr(addr_lvst.rfind(os_sep) + 1, addr_lvst.rfind('.') - addr_lvst.rfind(os_sep) - 1);
+			string frame_num = filename_lvst.substr(filename_lvst.rfind('_') + 1);
+			string addr_lvst_pre = addr_lvst.substr(0, addr_lvst.rfind(os_sep));
+			string addr_lvst_pre_pre = addr_lvst_pre.substr(0, addr_lvst_pre.rfind(os_sep));
+			string simname = addr_lvst_pre.substr(addr_lvst_pre.rfind(os_sep) + 1);
+
+			sprintf(addr_sketch_c, string("../VisMat/data\\4096\\sbfs_flip_water_pipes_10000\\flipSketchGrid_%04d.bin").c_str(), current_frame);
+			string addr_sketch = string(addr_sketch_c);
+			string addr_sketch_pre = addr_sketch.substr(0, addr_sketch.rfind(os_sep));
+			string addr_sketch_pre_pre = addr_sketch_pre.substr(0, addr_sketch_pre.rfind(os_sep));
+			string seed_num = addr_sketch_pre_pre.substr(addr_sketch_pre_pre.rfind(os_sep) + 1);
+
+			string path_test_mesh = inpath + os_sep + seed_num + "#" + simname + "#" + filename_lvst + "_recons.obj";
+			string path_pred_mesh = inpath + os_sep + seed_num + "#" + simname + "#" + filename_lvst + "_pred.obj";
+			string path_streamline = inpath + os_sep + seed_num + "#" + simname + "#" + "flipStreamline_" + frame_num + "_resampled.txt";
+			string path_mesh = inpath + os_sep + simname + "#" + "flip_" + frame_num + ".gz";
+
+			// load streamline
+			fstream file(path_streamline, std::fstream::in);
+			ERROR_CHECK(!file.is_open(), ("ERROR: cannot open file: %s\n", path_streamline.c_str()));
+			string line;
+			int line_id = 0;
+			while (getline(file, line, '\n'))
+			{
+				stringstream ssline(line);
+				string token;
+				int point_id = 0;
+				while (getline(ssline, token, ' '))
+					streamline_grid[current_frame][line_id][point_id++] = (atof(token.c_str()) - center) * scale;
+				ERROR_CHECK(point_id % 3 != 0, "ERROR: streamline points not correct!\n");
+				streamline_length[current_frame][line_id] = point_id / 3;
+				line_id++;
+				ERROR_CHECK(line_id >= max_streamline_number, "ERROR: too many streamlines!\n");
+			}
+			num_streamlines[current_frame] = line_id;
+			file.close();
+
+			// load mesh
+			train_animation[current_frame]->Read_Manta_Mesh_OBJ(path_test_mesh.c_str());
+			train_animation[current_frame]->Build_Connectivity();
+			train_animation[current_frame]->Lap_Smooth_Mesh();
+			train_animation[current_frame]->Build_VN(train_animation[current_frame]->X);
+
+			predict_animation[current_frame]->Read_Manta_Mesh_OBJ(path_pred_mesh.c_str());
+			predict_animation[current_frame]->Build_Connectivity();
+			predict_animation[current_frame]->Lap_Smooth_Mesh();
+			predict_animation[current_frame]->Build_VN(predict_animation[current_frame]->X);
+		}
+
+		Update(start_frame);
+	}
+
+	//load demo_interpolation
+	void Load_Tensorflow_Demo_Interpolate()
+	{
+		string inpath = "..\\tensorflow\\demo_interpolate";
+		start_frame = 0;
+		end_frame = 50;
+		Set_Scene_Name("demo_interpolate");
+
+		float center = 0.5 * grid_res;
+		float scale = 1.0 / grid_res;
+		// allocate memory for meshes
+		if (train_animation == NULL)
+		{
+			train_animation = new Tri_Mesh<TYPE>*[max_frames];
+			predict_animation = new Tri_Mesh<TYPE>*[max_frames];
+			for (int i = 0; i < max_frames; i++)
+			{
+				train_animation[i] = new Tri_Mesh<TYPE>(max_vertices);
+				predict_animation[i] = new Tri_Mesh<TYPE>(max_vertices);
+			}
+		}
+		string os_sep = "\\";
+		printf("start loading tensorflow demo interpolation\n");
+		for (int current_frame = start_frame; current_frame <= end_frame; current_frame++)
+		{
+			float a = current_frame / 50.0;
+			char path_pred_mesh[1024];
+			sprintf(path_pred_mesh, string(inpath + os_sep + "test_predict_0_20_%.2f.obj").c_str(), a);
+	
+			// load mesh
+			predict_animation[current_frame]->Read_Manta_Mesh_OBJ(path_pred_mesh);
+			predict_animation[current_frame]->Build_Connectivity();
+			predict_animation[current_frame]->Lap_Smooth_Mesh();
+			predict_animation[current_frame]->Build_VN(predict_animation[current_frame]->X);
+		}
+
 		Update(start_frame);
 	}
 
@@ -719,12 +849,22 @@ public:
 		float center = 0.5 * grid_res;
 		float scale = 1.0 / grid_res;
 		// load data
+		bool streamline_label = false;
 		printf("start loading the streamlines %s, this may take a while...\n", filename.c_str());
 		for (int current_frame = start_frame; current_frame <= end_frame; current_frame++)
 		{
 			char current_filename[1024];
-			if(resampled)
-				sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d_resampled.txt").c_str(), current_frame);
+			if (resampled)
+			{
+				// clustering case
+				sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d_resampled_agglomerativeclustering_cluster_centers.txt").c_str(), current_frame);
+				//sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d_resampled_kmeans_cluster_centers.txt").c_str(), current_frame);
+				/*sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d_resampled.txt").c_str(), current_frame);
+				streamline_label = true;*/
+
+				//no clustering
+				//sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d_resampled.txt").c_str(), current_frame);
+			}
 			else
 				sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d.txt").c_str(), current_frame);		
 			//printf("%s\n", current_filename);
@@ -753,6 +893,30 @@ public:
 			file.close();
 		}
 
+		// load streamline labels if any
+		if (streamline_label)
+		{
+			streamline_labels = new int*[max_frames];
+			for (int f = 0; f < max_frames; f++)
+				streamline_labels[f] = new int[max_streamline_number];
+
+			for (int current_frame = start_frame; current_frame <= end_frame; current_frame++)
+			{
+				char current_filename[1024];
+				//sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d_resampled_agglomerativeclustering_labels.txt").c_str(), current_frame);
+				sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d_resampled_kmeans_labels.txt").c_str(), current_frame);
+
+				FILE *fp = fopen(current_filename, "r+");
+				if (fp == 0) { printf("ERROR: cannot open %s\n", current_filename); getchar(); }
+				for (int l = 0; l < num_streamlines[current_frame]; l++)
+				{
+					fscanf(fp, "%d", &streamline_labels[current_frame][l]);
+				}
+				fclose(fp);
+			}
+		}
+
+
 		Update(start_frame);
 	}
 
@@ -775,7 +939,8 @@ public:
  		for (int f = start_frame;	f <= end_frame; f++)
 		{
 			char current_filename[1024];
-			sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d.bin").c_str(), f);
+			//sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d.bin").c_str(), f);
+			sprintf(current_filename, string(basePath + "\\" + scene_name + "\\" + filename + "_%04d_agglomerativeclustering_cluster_centers.bin").c_str(), f);
 			Read_Grid_Bin(current_filename, grid_sketch[f], grid_res, grid_res, grid_res);
 		}
 		PRINTF("end loading the grid data\n");
@@ -1065,16 +1230,44 @@ public:
 
 		static bool set_color = false;
 		static int last_frame = -1;
-
+		static std::vector<float> colors;
 		if (!set_color)
 		{
 			for (int i = 0; i < max_streamline_number; i++)
 			{
-				streamline_colors[3 * i + 0] = ((float)rand() / (RAND_MAX));
-				streamline_colors[3 * i + 1] = ((float)rand() / (RAND_MAX));
-				streamline_colors[3 * i + 2] = ((float)rand() / (RAND_MAX));
+				colors.push_back((float)rand() / (RAND_MAX));
+				colors.push_back((float)rand() / (RAND_MAX));
+				colors.push_back((float)rand() / (RAND_MAX));
 			}
 			set_color = true;
+		}
+
+		// count number of distinct labels
+		if (streamline_labels)
+		{
+			std::unordered_set<int> set;
+			int num_labels = 0;
+			for (int i = 0; i < num_streamlines[cur_frame]; i++)
+				if (set.find(streamline_labels[cur_frame][i]) == set.end())
+				{
+					set.insert(streamline_labels[cur_frame][i]);
+					num_labels++;
+				}
+			for (int i = 0; i < num_streamlines[cur_frame]; i++)
+			{
+				streamline_colors[3 * i + 0] = colors[3 * streamline_labels[cur_frame][i] + 0];
+				streamline_colors[3 * i + 1] = colors[3 * streamline_labels[cur_frame][i] + 1];
+				streamline_colors[3 * i + 2] = colors[3 * streamline_labels[cur_frame][i] + 2];
+			}
+		}
+		else
+		{
+			for (int i = 0; i < num_streamlines[cur_frame]; i++)
+			{
+				streamline_colors[3 * i + 0] = colors[3 * i + 0];
+				streamline_colors[3 * i + 1] = colors[3 * i + 1];
+				streamline_colors[3 * i + 2] = colors[3 * i + 2];
+			}
 		}
 
 		glUseProgram(0);

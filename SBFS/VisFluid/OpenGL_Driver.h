@@ -6,6 +6,7 @@
 #define ROTATE_MOTION		2
 #define TRANSLATE_MOTION	3
 
+#include <gif.h>
 #include "OpenGL_GLSL.h"
 #include "Timer.h"
 #include "Fluid.h"
@@ -38,6 +39,8 @@ Fluid<float> example;
 //Running configuration
 bool	idle_run = false;
 bool	saveData = false;
+bool    makeGIF = false;
+bool    updated = false, rendered = false, saved = false;
 int		iterations = 1;
 int		select_v = -1;
 int     render_mode = RENDER_MODE::SURFACE;
@@ -112,7 +115,7 @@ public:
 		example.Initialize();
 
 		glutInit(argc, argv);
-		glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB | GLUT_DEPTH);
+		glutInitDisplayMode(GLUT_SINGLE | GLUT_RGBA | GLUT_DEPTH); // use single frame buffer to avoid read pixel confusion
 		glutInitWindowPosition(100, 100);
 		glutInitWindowSize(screen_width, screen_height);
 		glutCreateWindow("OpenGL Demo");
@@ -132,26 +135,65 @@ public:
 
 	static void Handle_Idle()
 	{
-		if (idle_run)
-		{
-			if (iterations > example.end_frame)
-			{
+		// update
+		if (idle_run){
+			if (iterations > example.end_frame){
 				example.Update(iterations);
 				glutPostRedisplay();
 				return;
 			}
+			if (!updated) {
+				example.Update(iterations);
+				updated = true;
+				rendered = false;
+				saved = false;
+			}
 
-			Timer time;
-			while (time.Get_Time() < 1.0 / example.fps)
-			{}
-
-			example.Update(iterations);
-			if(saveData)
+			if (saveData && rendered) {
 				Save_To_Image(example.Get_Scene_Name(), iterations);
-			iterations++;
+				saved = true;
+				// new update
+				iterations++;
+				updated = false;
+			}
+		}else if (makeGIF) {
+			static int	i_iteration = 0; // number of examples
+			static int	i_frame = 1;     // number of thresholds 
+			static float  threshold_value = 0.5;
+			
+			//updated-->rendered-->saved
+			if (!updated){ // start when saved or intial
+				if (i_frame > 5) { i_iteration++; i_frame = 1; }
+				if (i_iteration > 9) { glutPostRedisplay(); return; }
+
+				printf("processing i_iteration = %d, i_frame =%d\n", i_iteration, i_frame);
+				threshold_value = 0.6 - i_frame * 0.1;
+				assert(threshold_value > 1e-8);
+				example.Surface_Reconstruction_From_Levelset_Update(i_iteration, threshold_value);
+				example.Update(i_iteration);
+				updated = true;
+				rendered = false;
+				saved = false;
+			}	
+			if (saveData && rendered) { //rendered-->saved
+				Save_To_GIF(example.Get_Scene_Name(), i_iteration, i_frame);
+				saved = true; 
+				// new update
+				i_frame++;
+				updated = false;
+			}
+
+			iterations = i_iteration;
+			example.threshold_value = threshold_value;
+		}else{
+			example.Update(iterations);
 		}
-		example.Update(iterations);
+
 		glutPostRedisplay();
+		// glutPostRedisplay() sets a flag
+		// GLUT checks to see if the flag is set at ***THE END OF*** the event loop
+		// If set then the display callback function is executed
+		// cannot not save image write after parameter update(rendering may not updated yet!)
 	}
 
 	static void Handle_Display()
@@ -205,10 +247,10 @@ public:
 			glRotated(elevate_angle, 1, 0, 0);
 			glRotated(swing_angle, 0, 1, 0);
 			num_streamlines = example.Draw_Streamlines();
+			//example.Draw_Sketches();
 			glPopMatrix();
 		}
 		//--visualize groundtruth and predict result
-		/*
 		if (show_object == 0)
 		{
 			glPushMatrix();
@@ -236,10 +278,10 @@ public:
 				Draw_Example(example.X);
 			}
 			glPopMatrix();
-		}*/
+		}
 
-		//-- example
-		example.Set_Current_Frame(example.lvst_mesh_animation);
+		//-- example: lvst sequence
+		/*example.Set_Current_Frame(example.lvst_mesh_animation);
 		glPushMatrix();
 		glTranslatef(0.0, 0, 0);
 		glRotated(elevate_angle, 1, 0, 0);
@@ -250,34 +292,24 @@ public:
 			example.Draw_Edges();
 		else if(render_mode == RENDER_MODE::SURFACE)
 			Draw_Example(example.X);
- 		glPopMatrix();
+ 		glPopMatrix();*/
 
-		//--sketch and example(edge mode)
-		/*glPushMatrix();
+		//--voxelize levelset grid and sketch grid
+		/*Init_OPENGL_LIGHTING();
+		glPushMatrix();
+		glTranslatef(-0.6, 0, 0);
+		glRotated(elevate_angle, 1, 0, 0);
+		glRotated(swing_angle, 0, 1, 0);
+		example.Draw_Voxels(0);
+		glPopMatrix();
+		glPushMatrix();
 		glTranslatef(0.6, 0, 0);
 		glRotated(elevate_angle, 1, 0, 0);
 		glRotated(swing_angle, 0, 1, 0);
-		example.Draw_Sketches();
-		example.Draw_Edges();
+		example.Draw_Voxels(1);
 		glPopMatrix();*/
 
-
-		//--voxelize levelset grid and sketch grid
-		//Init_OPENGL_LIGHTING();
-		//glPushMatrix();
-		//glTranslatef(-0.6, 0, 0);
-		//glRotated(elevate_angle, 1, 0, 0);
-		//glRotated(swing_angle, 0, 1, 0);
-		//example.Draw_Voxels(0);
-		//glPopMatrix();
-		//glPushMatrix();
-		//glTranslatef(0.6, 0, 0);
-		//glRotated(elevate_angle, 1, 0, 0);
-		//glRotated(swing_angle, 0, 1, 0);
-		//example.Draw_Voxels(1);
-		//glPopMatrix();
-
-		////--visualize velocity field
+		//--visualize velocity field
 		//Init_OPENGL_LIGHTING();
 		//glPushMatrix();
 		//glTranslatef(-0.6, 0, 0);
@@ -338,8 +370,15 @@ public:
 			glEnable(GL_DEPTH_TEST);
 		}
 
-
 		glutSwapBuffers();
+
+		//updated-->rendered-->saved
+		if (idle_run || makeGIF) {
+			if (updated) { // updated-->rendered
+				rendered = true;
+				saved = false;
+			}
+		}
 	}
 
 	static void Handle_Reshape(int w, int h)
@@ -379,7 +418,7 @@ public:
 		case'o':
 		{
 			show_object = (show_object+1) % 2;
-			printf("show_object = %d\n", show_object);
+			printf("show_object = %s\n", show_object==0? "prediction": "training");
 			break;
 		}
 		case 'p':
@@ -400,7 +439,7 @@ public:
 			{
 				example.threshold_value -= 0.1;
 				printf("reconstruction threshold_value = %f\n", example.threshold_value);
-				example.Surface_Reconstruction_From_Levelset_Update();
+				example.Surface_Reconstruction_From_Levelset_Update(example.cur_frame, example.threshold_value);
 			}
 			break;
 		}
@@ -410,13 +449,18 @@ public:
 			{
 				example.threshold_value += 0.1;
 				printf("reconstruction threshold_value = %f\n", example.threshold_value);
-				example.Surface_Reconstruction_From_Levelset_Update();
+				example.Surface_Reconstruction_From_Levelset_Update(example.cur_frame, example.threshold_value);
 			}
 			break;
 		}
 		case 'i':
 		{
 			idle_run = !idle_run;
+			break;
+		}
+		case 'g': 
+		{
+			makeGIF = !makeGIF;
 			break;
 		}
 		case's':
@@ -527,6 +571,12 @@ public:
 
 
 	//utility functions
+	static void Delay(float sec)
+	{
+		Timer time;
+		while (time.Get_Time() < sec) {}
+	}
+
 	static void Draw_Example(float *X)
 	{
 		glUseProgram(phong_program);
@@ -830,6 +880,46 @@ public:
 		sprintf_s(imagename, "%s\\example_%04d.bmp", dir.c_str(), iterations);
 		BMP_Write(imagename, pixels, screen_width, screen_height);
 		delete[] pixels;
+	}
+
+	static void Flip_Image(uint8_t *pixels, int channels, int width, int height)
+	{
+		for (int j = 0; j < height / 2; j++)
+			for (int i = 0; i < width; i++) 
+				for(int c = 0; c < channels; c++)
+					swap(pixels[(j*width + i) * channels + c], pixels[((height - 1 - j)*width + i) * channels + c]);
+	}
+
+	static void Save_To_GIF(const string folder, int i_iteration, int iframe)
+	{
+		string dir = "images\\" + folder;
+		struct stat st = { 0 };
+		if (stat(dir.c_str(), &st) == -1)
+			CreateDirectory(dir.c_str(), NULL);
+		
+		char fileName[1024];
+		sprintf_s(fileName, "%s\\example_%04d.gif", dir.c_str(), i_iteration);
+
+		const static int all_frames = 5;
+		static uint8_t** all_pixels = nullptr;
+		if (!all_pixels) {
+			all_pixels = new uint8_t*[all_frames];
+			for (int i = 0; i < all_frames; i++) {
+				all_pixels[i] = new uint8_t[screen_width*screen_height * 4];
+			}
+		}
+		
+		glReadPixels(0, 0, screen_width, screen_height, GL_RGBA, GL_UNSIGNED_BYTE, all_pixels[iframe-1]);
+		if (iframe == all_frames) {
+			int delay = 100;
+			GifWriter g;
+			GifBegin(&g, fileName, screen_width, screen_height, delay);
+			for (int i = 0; i < all_frames; i++) {
+				Flip_Image(all_pixels[i], 4, screen_width, screen_height);
+				GifWriteFrame(&g, all_pixels[i], screen_width, screen_height, delay);
+			}
+			GifEnd(&g);
+		}
 	}
 
 	static bool BMP_Write(const char *filename, float *pixels, int width, int height)
